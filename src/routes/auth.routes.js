@@ -1,94 +1,102 @@
 const express = require("express");
 const router = express.Router();
-
-const {
-  readUsers,
-  writeUsers
-} = require("../data/users.store");
+const pool = require("../db/db");
 
 // =======================
 // REGISTRO
 // =======================
-router.post("/register", (req, res) => {
+router.post("/register", async (req, res) => {
   const {
-    nombres,
-    apellidos,
-    nacimiento,
+    name,
     username,
+    nacimiento,
     email,
     password
   } = req.body;
 
-  if (
-    !nombres ||
-    !apellidos ||
-    !nacimiento ||
-    !username ||
-    !email ||
-    !password
-  ) {
+  if (!name || !username || !nacimiento || !email || !password) {
     return res.status(400).json({
       message: "Datos incompletos"
     });
   }
 
-  const data = readUsers();
+  try {
+    const exists = await pool.query(
+      "SELECT id FROM users WHERE email = $1",
+      [email]
+    );
 
-  const exists = data.users.find(u => u.email === email);
-  if (exists) {
-    return res.status(409).json({
-      message: "Este correo ya está registrado"
+    if (exists.rows.length > 0) {
+      return res.status(409).json({
+        message: "Este correo ya está registrado"
+      });
+    }
+
+    await pool.query(
+      `INSERT INTO users (name, email, password, status)
+       VALUES ($1, $2, $3, 'pending')`,
+      [name, email, password]
+    );
+
+    res.json({
+      message:
+        "Tu cuenta fue creada y está pendiente de aprobación."
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Error interno del servidor"
     });
   }
-
-  data.users.push({
-    nombres,
-    apellidos,
-    nacimiento,
-    username,
-    email,
-    password, // luego ciframos
-    status: "pending",
-    createdAt: new Date().toISOString()
-  });
-
-  writeUsers(data);
-
-  res.json({
-    message:
-      "Tu cuenta será aprobada en un lapso de 24 horas. Si no es aprobada, escribe a soporte: sorcrar@gmail.com"
-  });
 });
 
 // =======================
 // LOGIN
 // =======================
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
-  const data = readUsers();
-  const user = data.users.find(u => u.email === email);
+  try {
+    const result = await pool.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email]
+    );
 
-  if (!user || user.password !== password) {
-    return res.status(401).json({
-      message: "Correo o contraseña incorrectos"
-    });
-  }
-
-  if (user.status !== "approved") {
-    return res.status(403).json({
-      message:
-        "Tu cuenta aún no ha sido aprobada. Si ya pasaron 24 horas, contacta a soporte."
-    });
-  }
-
-  res.json({
-    message: "Login exitoso",
-    user: {
-      email: user.email,
-      username: user.username
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        message: "Correo o contraseña incorrectos"
+      });
     }
-  });
+
+    const user = result.rows[0];
+
+    if (user.password !== password) {
+      return res.status(401).json({
+        message: "Correo o contraseña incorrectos"
+      });
+    }
+
+    if (user.status !== "approved") {
+      return res.status(403).json({
+        message: "Tu cuenta aún no ha sido aprobada"
+      });
+    }
+
+    res.json({
+      message: "Login exitoso",
+      user: {
+        email: user.email,
+        name: user.name
+      }
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Error interno del servidor"
+    });
+  }
 });
 
 module.exports = router;
