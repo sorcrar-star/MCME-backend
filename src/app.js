@@ -5,11 +5,6 @@ const authRoutes = require("./routes/auth.routes");
 
 const app = express();
 
-const adminRoutes = require("./routes/admin.routes");
-
-app.use("/api/admin", adminRoutes);
-
-
 app.use(cors());
 app.use(express.json());
 
