@@ -79,4 +79,48 @@ router.post("/reject", isAdmin, async (req, res) => {
   }
 });
 
+// ver usuarios aprobados
+router.get("/approved", async (req, res) => {
+  const adminEmail = req.headers["x-admin-email"];
+
+  if (adminEmail !== process.env.ADMIN_EMAIL) {
+    return res.status(403).json({ message: "No autorizado" });
+  }
+
+  try {
+    const result = await pool.query(
+      "SELECT name, email FROM users WHERE status = 'approved'"
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al obtener usuarios aprobados" });
+  }
+});
+
+// quitar acceso a un usuario
+router.post("/revoke", async (req, res) => {
+  const adminEmail = req.headers["x-admin-email"];
+
+  if (adminEmail !== process.env.ADMIN_EMAIL) {
+    return res.status(403).json({ message: "No autorizado" });
+  }
+
+  const { email } = req.body;
+
+  try {
+    await pool.query(
+      "UPDATE users SET status = 'suspended' WHERE email = $1",
+      [email]
+    );
+
+    res.json({ message: "Acceso quitado correctamente" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al quitar acceso" });
+  }
+});
+
 module.exports = router;
+
