@@ -7,14 +7,13 @@ const pool = require("../db/db");
 // =======================
 router.post("/register", async (req, res) => {
   const {
-    name,
-    username,
-    nacimiento,
-    email,
-    password
-  } = req.body;
+  name,
+  email,
+  password
+} = req.body;
 
-  if (!name || !username || !nacimiento || !email || !password) {
+if (!name || !email || !password) {
+
     return res.status(400).json({
       message: "Datos incompletos"
     });
