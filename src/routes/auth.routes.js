@@ -6,26 +6,21 @@ const pool = require("../db/db");
 // REGISTRO
 // =======================
 router.post("/register", async (req, res) => {
-  const {
-  name,
-  email,
-  password
-} = req.body;
-
-if (!name || !email || !password) {
-
-    return res.status(400).json({
-      message: "Datos incompletos"
-    });
-  }
-
   try {
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        message: "Datos incompletos"
+      });
+    }
+
     const exists = await pool.query(
-      "SELECT id FROM users WHERE email = $1",
+      "SELECT 1 FROM users WHERE email = $1",
       [email]
     );
 
-    if (exists.rows.length > 0) {
+    if (exists.rowCount > 0) {
       return res.status(409).json({
         message: "Este correo ya está registrado"
       });
@@ -39,11 +34,11 @@ if (!name || !email || !password) {
 
     res.json({
       message:
-        "Tu cuenta fue creada y está pendiente de aprobación."
+        "Tu cuenta fue registrada y está pendiente de aprobación."
     });
 
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error("ERROR REGISTER:", err);
     res.status(500).json({
       message: "Error interno del servidor"
     });
@@ -54,23 +49,17 @@ if (!name || !email || !password) {
 // LOGIN
 // =======================
 router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-
   try {
+    const { email, password } = req.body;
+
     const result = await pool.query(
       "SELECT * FROM users WHERE email = $1",
       [email]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(401).json({
-        message: "Correo o contraseña incorrectos"
-      });
-    }
-
     const user = result.rows[0];
 
-    if (user.password !== password) {
+    if (!user || user.password !== password) {
       return res.status(401).json({
         message: "Correo o contraseña incorrectos"
       });
@@ -90,8 +79,8 @@ router.post("/login", async (req, res) => {
       }
     });
 
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error("ERROR LOGIN:", err);
     res.status(500).json({
       message: "Error interno del servidor"
     });
