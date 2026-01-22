@@ -1,5 +1,8 @@
 const express = require("express");
 const cors = require("cors");
+const adminRoutes = require("./routes/admin.routes");
+
+app.use("/api/admin", adminRoutes);
 
 const authRoutes = require("./routes/auth.routes");
 

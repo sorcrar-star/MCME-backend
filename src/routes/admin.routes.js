@@ -1,11 +1,13 @@
 const express = require("express");
 const router = express.Router();
+const pool = require("../db/db");
 
-const { readUsers, writeUsers } = require("../data/users.store");
-const { ADMIN_EMAIL } = require("../config/admin.config");
+const ADMIN_EMAIL = "sorcrar@gmail.com";
 
-// Middleware simple admin
-function requireAdmin(req, res, next) {
+/**
+ * Middleware simple de seguridad
+ */
+function isAdmin(req, res, next) {
   const adminEmail = req.headers["x-admin-email"];
 
   if (adminEmail !== ADMIN_EMAIL) {
@@ -17,46 +19,64 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// =======================
-// LISTAR USUARIOS PENDIENTES
-// =======================
-router.get("/pending", requireAdmin, (req, res) => {
-  const data = readUsers();
-  const pending = data.users.filter(u => u.status === "pending");
-  res.json(pending);
-});
+/**
+ * Obtener usuarios pendientes
+ */
+router.get("/pending", isAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, email, status, created_at
+       FROM users
+       WHERE status = 'pending'
+       ORDER BY created_at ASC`
+    );
 
-// =======================
-// APROBAR USUARIO
-// =======================
-router.post("/approve", requireAdmin, (req, res) => {
-  const { email } = req.body;
-
-  const data = readUsers();
-  const user = data.users.find(u => u.email === email);
-
-  if (!user) {
-    return res.status(404).json({ message: "Usuario no encontrado" });
+    res.json(result.rows);
+  } catch (err) {
+    console.error("ERROR PENDING USERS:", err);
+    res.status(500).json({ message: "Error interno" });
   }
-
-  user.status = "approved";
-  writeUsers(data);
-
-  res.json({ message: "Usuario aprobado" });
 });
 
-// =======================
-// RECHAZAR USUARIO
-// =======================
-router.post("/reject", requireAdmin, (req, res) => {
-  const { email } = req.body;
+/**
+ * Aprobar usuario
+ */
+router.post("/approve", isAdmin, async (req, res) => {
+  try {
+    const { email } = req.body;
 
-  const data = readUsers();
-  data.users = data.users.filter(u => u.email !== email);
+    await pool.query(
+      `UPDATE users
+       SET status = 'approved'
+       WHERE email = $1`,
+      [email]
+    );
 
-  writeUsers(data);
+    res.json({ message: "Usuario aprobado" });
+  } catch (err) {
+    console.error("ERROR APPROVE:", err);
+    res.status(500).json({ message: "Error interno" });
+  }
+});
 
-  res.json({ message: "Usuario rechazado y eliminado" });
+/**
+ * Rechazar usuario
+ */
+router.post("/reject", isAdmin, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    await pool.query(
+      `DELETE FROM users
+       WHERE email = $1`,
+      [email]
+    );
+
+    res.json({ message: "Usuario rechazado" });
+  } catch (err) {
+    console.error("ERROR REJECT:", err);
+    res.status(500).json({ message: "Error interno" });
+  }
 });
 
 module.exports = router;
