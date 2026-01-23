@@ -20,7 +20,9 @@ function isAdmin(req, res, next) {
 }
 
 /**
- * Obtener usuarios pendientes
+ * ===============================
+ * USUARIOS PENDIENTES
+ * ===============================
  */
 router.get("/pending", isAdmin, async (req, res) => {
   try {
@@ -39,7 +41,9 @@ router.get("/pending", isAdmin, async (req, res) => {
 });
 
 /**
- * Aprobar usuario
+ * ===============================
+ * APROBAR USUARIO
+ * ===============================
  */
 router.post("/approve", isAdmin, async (req, res) => {
   try {
@@ -60,7 +64,9 @@ router.post("/approve", isAdmin, async (req, res) => {
 });
 
 /**
- * Rechazar usuario
+ * ===============================
+ * RECHAZAR USUARIO (ELIMINAR)
+ * ===============================
  */
 router.post("/reject", isAdmin, async (req, res) => {
   try {
@@ -79,7 +85,11 @@ router.post("/reject", isAdmin, async (req, res) => {
   }
 });
 
-// ver usuarios aprobados
+/**
+ * ===============================
+ * USUARIOS APROBADOS
+ * ===============================
+ */
 router.get("/approved", isAdmin, async (req, res) => {
   try {
     const result = await pool.query(
@@ -96,24 +106,71 @@ router.get("/approved", isAdmin, async (req, res) => {
   }
 });
 
-
-// quitar acceso a un usuario
+/**
+ * ===============================
+ * QUITAR ACCESO (SUSPENDER)
+ * ===============================
+ */
 router.post("/revoke", isAdmin, async (req, res) => {
-
   const { email } = req.body;
 
   try {
     await pool.query(
-      "UPDATE users SET status = 'suspended' WHERE email = $1",
+      `UPDATE users
+       SET status = 'suspended'
+       WHERE email = $1`,
       [email]
     );
 
     res.json({ message: "Acceso quitado correctamente" });
   } catch (error) {
-    console.error(error);
+    console.error("ERROR REVOKE:", error);
     res.status(500).json({ message: "Error al quitar acceso" });
   }
 });
 
-module.exports = router;
+/**
+ * ===============================
+ * USUARIOS SUSPENDIDOS
+ * ===============================
+ */
+router.get("/suspended", isAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, name, email, status, created_at
+       FROM users
+       WHERE status = 'suspended'
+       ORDER BY created_at ASC`
+    );
 
+    res.json(result.rows);
+  } catch (error) {
+    console.error("ERROR SUSPENDED USERS:", error);
+    res.status(500).json({ message: "Error al obtener usuarios suspendidos" });
+  }
+});
+
+/**
+ * ===============================
+ * REACTIVAR USUARIO
+ * ===============================
+ */
+router.post("/reactivate", isAdmin, async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    await pool.query(
+      `UPDATE users
+       SET status = 'approved'
+       WHERE email = $1`,
+      [email]
+    );
+
+    res.json({ message: "Usuario reactivado correctamente" });
+  } catch (error) {
+    console.error("ERROR REACTIVATE:", error);
+    res.status(500).json({ message: "Error al reactivar usuario" });
+  }
+});
+
+module.exports = router;
